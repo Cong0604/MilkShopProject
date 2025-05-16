@@ -18,4 +18,6 @@ target 'MilkShopProject' do
   pod 'MBProgressHUD', '~> 1.2'
   pod 'JXPageControl'
   pod 'RealmSwift', '~> 20.0'
+  pod 'LZViewPager'
+  pod 'AnimatedField', '~> 2.4'
 end

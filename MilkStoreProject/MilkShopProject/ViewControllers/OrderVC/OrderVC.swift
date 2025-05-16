@@ -88,13 +88,6 @@ class OrderVC: BaseViewController {
         totalLabel.text = "\(formatCurrency(totalCost + shipping)) đ"
     }
     
-    private func formatCurrency(_ value: Double) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .decimal
-        formatter.groupingSeparator = "."
-        formatter.maximumFractionDigits = 0
-        return formatter.string(from: NSNumber(value: value)) ?? "0"
-    }
 }
 
 extension OrderVC: UITableViewDataSource, UITableViewDelegate {
@@ -146,7 +139,6 @@ extension OrderVC: ZPPaymentDelegate {
         let statusorder = Global.orderConfirm
         let totalprice = totalAmount
         
-        
         let db = Firestore.firestore()
         let orderRef = db.collection("order").document()
         
@@ -172,8 +164,8 @@ extension OrderVC: ZPPaymentDelegate {
                     "idorder": orderRef.documentID,
                     "isSeen": false,
                     "name": userId,
-                    "notification": "Đơn hàng của bạn đã được hoàn thành! Hãy đánh giá 5 sao để ủng hộ chúng tôi",
-                    "role": false
+                    "notification": "Bạn có đơn hàng mới",
+                    "role": true
                 ]) { error in
                     if let error = error {
                         print("Error creating notification: \(error.localizedDescription)")
@@ -182,13 +174,23 @@ extension OrderVC: ZPPaymentDelegate {
                     }
                 }
                 
-                CartService.share.removeAllItemsInCart(for: userId) { error in
+                for item in self.selectedCartItems {
+                    FirebaseUploader.shared.updateProductAfterPurchase(productId: item.idProduct, quantityPurchased: item.quantity) { error in
+                        if let error = error {
+                            print("Error updating product after purchase: \(error.localizedDescription)")
+                        } else {
+                            print("Product updated successfully after purchase.")
+                        }
+                    }
+                }
+                
+                CartService.shared.removeAllItemsInCart(for: userId) { error in
                     if let error = error {
                         print("Error clearing cart: \(error.localizedDescription)")
                     } else {
                         print("Cart cleared successfully")
                         DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
-                            AppDelegate.setRoot(TabbarCustomController(),isNavi: true)
+                            AppDelegate.setRoot(TabbarCustomController(), isNavi: true)
                         }
                     }
                 }

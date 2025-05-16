@@ -10,7 +10,7 @@ import FirebaseAuth
 
 class CartService {
     
-    static let share = CartService()
+    static let shared = CartService()
     
     private let db = Firestore.firestore()
     private var cartRef: CollectionReference {

@@ -2,6 +2,8 @@ import Foundation
 import FirebaseAuth
 import FirebaseCore
 import FirebaseFirestore
+import FirebaseStorage
+import UIKit
 
 class FirebaseUploader {
     static let shared = FirebaseUploader()
@@ -38,12 +40,13 @@ class FirebaseUploader {
                 
                 if let priceString = updatedDataMilk.price {
                     updatedDataMilk.priceSell = self.convertPriceToInt(priceString)
-                    updatedDataMilk.priceInput = self.convertPriceToInt(priceString) ?? 0 - 10000
+                    updatedDataMilk.priceInput = (self.convertPriceToInt(priceString) ?? 0) - 10000
                 }
                 
                 if let priceInput = updatedDataMilk.priceInput, let quantity = updatedDataMilk.quantity {
                     updatedDataMilk.totalImport = priceInput * quantity
                 }
+                
                 updatedDataMilk.totalSell = updatedDataMilk.totalSell ?? 0
                 updatedDataMilk.sell = updatedDataMilk.sell ?? 0
                 
@@ -75,6 +78,118 @@ class FirebaseUploader {
         let cleanedPriceWithoutDot = cleanedPrice.replacingOccurrences(of: ".", with: "")
         
         return Int(cleanedPriceWithoutDot)
+    }
+    
+    func uploadProductImage(_ image: UIImage, currentImageUrl: String? = nil, completion: @escaping (String?) -> Void) {
+        if let imageData = image.jpegData(compressionQuality: 0.3) {
+            let base64String = imageData.base64EncodedString()
+            let imageUrl = "data:image/jpeg;base64,\(base64String)"
+            completion(imageUrl)
+            return
+        }
+        
+        if let currentUrl = currentImageUrl {
+            completion(currentUrl)
+            return
+        }
+        
+        completion(nil)
+    }
+    
+    func updateProduct(
+        productId: String,
+        name: String,
+        type: String,
+        priceSell: String,
+        priceInput: String,
+        quantity: String,
+        brandOrigin: String,
+        exp: String,
+        imageURL: String,
+        completion: @escaping (Error?) -> Void
+    ) {
+        let db = Firestore.firestore()
+        let productRef = db.collection("milks").whereField("idProduct", isEqualTo: productId)
+        
+        productRef.getDocuments { snapshot, error in
+            if let error = error {
+                completion(error)
+                return
+            }
+            
+            guard let document = snapshot?.documents.first else {
+                completion(NSError(domain: "", code: 0, userInfo: [NSLocalizedDescriptionKey: "Không tìm thấy sản phẩm"]))
+                return
+            }
+            
+            // Format price
+            let priceValue = Int(priceSell) ?? 0
+            let formattedPrice = self.formatPrice(priceValue)
+            
+            let productData: [String: Any] = [
+                "nameMilk": name,
+                "type": type,
+                "priceSell": priceValue,
+                "price": formattedPrice,
+                "priceInput": Int(priceInput) ?? 0,
+                "quantity": Int(quantity) ?? 0,
+                "imgMilk": imageURL,
+                "detailList": [
+                    [
+                        "brandOrigin": brandOrigin,
+                        "expiry": exp
+                    ]
+                ]
+            ]
+            
+            document.reference.updateData(productData) { error in
+                completion(error)
+            }
+        }
+    }
+    
+    private func formatPrice(_ price: Int) -> String {
+        let numberFormatter = NumberFormatter()
+        numberFormatter.numberStyle = .decimal
+        numberFormatter.groupingSeparator = "."
+        
+        if let formattedNumber = numberFormatter.string(from: NSNumber(value: price)) {
+            return "\(formattedNumber) đ"
+        }
+        return "\(price) đ"
+    }
+    
+    private func generateRandomID(type: String) -> String {
+        let letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+        let randomString = String((0..<10).map { _ in letters.randomElement()! })
+        return "\(type)\(randomString)"
+    }
+
+    func addProduct(type: String, productData: [String: Any], completion: @escaping (Error?) -> Void) {
+        let docRef = db.collection("milks").document()
+        
+        var newProductData = productData
+        let generatedID = generateRandomID(type: type)
+        print("🔍 Type được nhập vào: \(type)")
+        print("🔑 ID được tạo ra: \(generatedID)")
+        print("📦 Product Data trước khi thêm: \(productData)")
+        
+        newProductData["idProduct"] = generatedID
+        newProductData["sell"] = 0
+        newProductData["totalSell"] = 0.0
+        newProductData["totalImport"] = (productData["priceInput"] as? Int ?? 0) * (productData["quantity"] as? Int ?? 0)
+        
+        print("📦 Product Data sau khi thêm: \(newProductData)")
+        
+        docRef.setData(newProductData) { error in
+            if let error = error {
+                print("❌ Lỗi khi thêm sản phẩm: \(error.localizedDescription)")
+                completion(error)
+            } else {
+                print("✅ Thêm sản phẩm thành công với ID: \(generatedID)")
+                completion(nil)
+            }
+        }
     }
 }
 
@@ -181,6 +296,59 @@ extension FirebaseUploader {
             "password": newPassword
         ]) { error in
             completion(error)
+        }
+    }
+    
+    func updateProductAfterPurchase(productId: String, quantityPurchased: Int, completion: @escaping (Error?) -> Void) {
+        let db = Firestore.firestore()
+        
+        db.collection("milks").whereField("idProduct", isEqualTo: productId).getDocuments { snapshot, error in
+            if let error = error {
+                completion(error)
+                return
+            }
+            
+            guard let document = snapshot?.documents.first else {
+                completion(NSError(domain: "", code: 0, userInfo: [NSLocalizedDescriptionKey: "Sản phẩm không tìm thấy"]))
+                return
+            }
+            
+            let currentQuantity = document.data()["quantity"] as? Int ?? 0
+            let currentSell = document.data()["sell"] as? Int ?? 0
+            let currentTotalSell = document.data()["totalSell"] as? Double ?? 0
+            
+            let newQuantity = currentQuantity - quantityPurchased
+            let newSell = currentSell + quantityPurchased
+            let newTotalSell = currentTotalSell + (document.data()["priceSell"] as? Double ?? 0) * Double(quantityPurchased)
+            
+            document.reference.updateData([
+                "quantity": newQuantity,
+                "sell": newSell,
+                "totalSell": newTotalSell
+            ]) { error in
+                if let error = error {
+                    completion(error)
+                } else {
+                    completion(nil)
+                }
+            }
+        }
+    }
+    
+    func deleteProductFromFirebase(idProduct: String, completion: @escaping (Error?) -> Void) {
+        
+        db.collection("milks").whereField("idProduct", isEqualTo: idProduct).getDocuments { snapshot, error in
+            if let error = error {
+                completion(error)
+                return
+            }
+            guard let document = snapshot?.documents.first else {
+                completion(NSError(domain: "", code: 0, userInfo: [NSLocalizedDescriptionKey: "Không tìm thấy sản phẩm trên Firebase"]))
+                return
+            }
+            document.reference.delete { error in
+                completion(error)
+            }
         }
     }
 }

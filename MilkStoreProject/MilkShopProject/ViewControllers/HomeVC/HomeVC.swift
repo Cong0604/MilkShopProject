@@ -38,14 +38,12 @@ class HomeVC: BaseViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        
-        self.fetchDataFromRealm()
+        setupUI()
     }
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        
-        self.freshMilkClsView.reloadData()
+        fetchDataFromRealm()
     }
     
     override func viewDidDisappear(_ animated: Bool) {
@@ -76,6 +74,12 @@ class HomeVC: BaseViewController {
     @IBAction func didTapCartButton(_ sender: Any) {
         let vc = CartVC()
         self.push(vc)
+    }
+    
+    @IBAction func didTapSearchButton(_ sender: Any) {
+        let vc = SearchProductVC()
+        let nav = UINavigationController(rootViewController: vc)
+        self.present(vc: nav)
     }
     
     //MARK: Method
@@ -115,17 +119,22 @@ class HomeVC: BaseViewController {
     private func fetchDataFromRealm() {
         let dataMilkObject = RealmManager.shared.getAll(for: DataMilkObject.self)
         
+        print("count: \(dataMilkObject.count)")
         freshMilkData = dataMilkObject.filter { $0.type == "Sữa tươi" }
         promotionMilkData = dataMilkObject.filter { $0.type == "Sản phẩm khuyến mại" }
         creamData = dataMilkObject.filter { $0.type == "Kem" }
-        
         naturalYogurts = dataMilkObject.filter { $0.type == "Sữa chua tự nhiên" }
-        
         naturalFruitJuices = dataMilkObject.filter { $0.type == "Nước trái cây tự nhiên" }
-        
         fruitMilkDrinks = dataMilkObject.filter { $0.type == "Nước uống sữa trái cây" }
         
-        print("count:",freshMilkData.count, promotionMilkData.count,creamData.count, naturalYogurts.count, naturalFruitJuices.count, fruitMilkDrinks.count )
+        DispatchQueue.main.async { [weak self] in
+            self?.freshMilkClsView.reloadData()
+            self?.productPromotionClsView.reloadData()
+            self?.creamClsView.reloadData()
+            self?.naturalYogurtClsView.reloadData()
+            self?.naturalFruitJuiceClsView.reloadData()
+            self?.fruitMilkDrinkClsView.reloadData()
+        }
     }
     
     private func setupPageControl() {
@@ -226,7 +235,6 @@ extension HomeVC: UICollectionViewDelegate,UICollectionViewDataSource,UICollecti
     
     func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
         pageControl.currentPage = currentPage
-        let width = scrollView.frame.width
         currentPage = Int(scrollView.contentOffset.x)
     }
     

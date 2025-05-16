@@ -23,6 +23,12 @@ class AddressVC: BaseViewController {
         super.viewDidLoad()
         
         setUpTableView(addressTableView, AddressCell.self)
+        
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        
         fetchAddress()
     }
     
@@ -101,3 +107,4 @@ extension AddressVC: UITableViewDataSource, UITableViewDelegate {
         return swipeActions
     }
 }
+

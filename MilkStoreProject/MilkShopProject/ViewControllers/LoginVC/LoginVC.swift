@@ -18,7 +18,6 @@ class LoginVC: BaseViewController {
         }
     }
     @IBOutlet weak var phoneNumberTF: UITextField!
-    @IBOutlet weak var forgotPwButton: UIButton!
     
     deinit {
         NotificationCenter.default.removeObserver(self)
@@ -47,6 +46,11 @@ class LoginVC: BaseViewController {
     
     @IBAction func didTapSignUpButton(_ sender: UIButton) {
         self.push(RegisterVC())
+    }
+    
+    @IBAction func didTapForgotPwButton(_ sender: UIButton) {
+        let vc = ForgotPasswordVC()
+        self.push(vc)
     }
     
     private func setupTF() {
@@ -128,6 +132,15 @@ extension LoginVC {
                     } else if let document = document {
                         print("[HL-LOG] Tìm thấy document với ID: \(document.documentID)")
 
+                        if let roleString = document.data()?["role"] as? String {
+                            let role = (roleString.lowercased() == "true")
+                            print("[HL-LOG] Role of user: \(role ? "Admin" : "User")")
+                            UDHelper.roleUser = role
+                        } else {
+                            let role = document.data()?["role"] as? Bool ?? false
+                            print("[HL-LOG] Role of user: \(role ? "Admin" : "User")")
+                        }
+                        
                         DispatchQueue.main.async {
                             let popUpView = PopUpSuccesssSignInVC(frame: self.view.frame)
                             self.view.addSubview(popUpView)
@@ -142,14 +155,21 @@ extension LoginVC {
                                         print("[HL-LOG] ViewController đã bị hủy.")
                                         return
                                     }
-
-                                    if let nav = self.navigationController,
-                                       nav.topViewController === self {
-                                        self.push(TabbarCustomController())
-                                        UDHelper.isLoginSuccess = true
-                                        print("[HL-LOG] Chuyển sang màn hình chính - login success")
-                                    } else {
-                                        print("[HL-LOG] Không thể push - không ở top view controller")
+                                    
+                                    DispatchQueue.main.async {
+                                        if let nav = self.navigationController {
+                                            if nav.topViewController === self {
+                                                AppDelegate.setRoot(TabbarCustomController(), isNavi: true)
+                                                UDHelper.isLoginSuccess = true
+                                                print("[HL-LOG] Chuyển sang màn hình chính - login success")
+                                            } else {
+                                                print("[HL-LOG] Không thể push - không ở top view controller")
+                                            }
+                                        } else {
+                                            AppDelegate.setRoot(TabbarCustomController(), isNavi: true)
+                                            UDHelper.isLoginSuccess = true
+                                            print("[HL-LOG] Chuyển sang màn hình chính - login success (no nav)")
+                                        }
                                     }
                                 }
                             }

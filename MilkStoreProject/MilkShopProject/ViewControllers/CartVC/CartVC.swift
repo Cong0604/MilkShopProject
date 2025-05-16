@@ -48,7 +48,7 @@ class CartVC: BaseViewController {
         productEmptyView.isHidden = true
         cartItems.removeAll()
         
-        CartService.share.fetchCartItems(for: userId) { documents, error in
+        CartService.shared.fetchCartItems(for: userId) { documents, error in
             if let error = error {
                 print("Lỗi khi fetch cart: \(error.localizedDescription)")
                 self.updateUIAfterFetch()
@@ -178,7 +178,7 @@ extension CartVC: ProductCartCellDelegate {
     func didTapDeleteProduct(indexPath: IndexPath) {
         let items = cartItems[indexPath.row]
         
-        CartService.share.deleteCartItem(for: items.idUser, productId: items.idProduct) { error in
+        CartService.shared.deleteCartItem(for: items.idUser, productId: items.idProduct) { error in
             if let error = error {
                 print(error.localizedDescription)
                 return
@@ -196,7 +196,7 @@ extension CartVC: ProductCartCellDelegate {
         item.quantity -= 1
         cartItems[indexPath.row] = item
         
-        CartService.share.updateCartItem(for: item.idUser, productId: item.idProduct, quantity: item.quantity) { error in
+        CartService.shared.updateCartItem(for: item.idUser, productId: item.idProduct, quantity: item.quantity) { error in
             if let error = error {
                 print("Error: \(error.localizedDescription)")
             } else {
@@ -211,7 +211,7 @@ extension CartVC: ProductCartCellDelegate {
         item.quantity += 1
         cartItems[indexPath.row] = item
         
-        CartService.share.updateCartItem(for: item.idUser, productId: item.idProduct, quantity: item.quantity) { error in
+        CartService.shared.updateCartItem(for: item.idUser, productId: item.idProduct, quantity: item.quantity) { error in
             if let error = error {
                 print("Error: \(error.localizedDescription)")
             } else {
@@ -226,7 +226,7 @@ extension CartVC: ProductCartCellDelegate {
         item.quantity = newQuantity
         cartItems[indexPath.row] = item
         
-        CartService.share.updateCartItem(for: item.idUser, productId: item.idProduct, quantity: item.quantity) { error in
+        CartService.shared.updateCartItem(for: item.idUser, productId: item.idProduct, quantity: item.quantity) { error in
             if let error = error {
                 print("Error: \(error.localizedDescription)")
             } else {

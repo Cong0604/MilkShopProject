@@ -8,8 +8,11 @@
 import UIKit
 import Firebase
 
+
 class AccountVC: BaseViewController {
     
+    @IBOutlet weak var containerPopupView: UIView!
+    @IBOutlet weak var popupLogoutView: UIView!
     @IBOutlet weak var phoneNumberUserLabel: UILabel!
     @IBOutlet weak var nameUserLabel: UILabel!
     @IBOutlet weak var infoUserTableView: UITableView!
@@ -17,7 +20,7 @@ class AccountVC: BaseViewController {
     private var infoType: [InfoUserType] = InfoUserType.allCases
     private var nameUser = ""
     private var phoneNumberUser = ""
-    private var isRole = false
+    private var adminInfoType: [AdminManagerType] = AdminManagerType.allCases
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -29,6 +32,17 @@ class AccountVC: BaseViewController {
         super.viewWillAppear(animated)
         
         fetchUserInfo()
+    }
+    
+    @IBAction func didTapAgreeButton(_ sender: Any) {
+        self.logOut()
+        self.popupLogoutView.isHidden = true
+        self.containerPopupView.isHidden = true
+    }
+    
+    @IBAction func didTapCancelButton(_ sender: Any) {
+        self.popupLogoutView.alpha = 0
+        self.containerPopupView.alpha = 0
     }
     
     private func fetchUserInfo() {
@@ -50,16 +64,51 @@ class AccountVC: BaseViewController {
             }
         }
     }
+    
+    func logOut() {
+        do {
+            try Auth.auth().signOut()
+            UDHelper.isLoginSuccess = false
+            Global.isDimissBottomSheet = true
+            let loginVC = LoginVC()
+            AppDelegate.setRoot(loginVC, isNavi: true)
+        } catch let error {
+            print("Error signing out: \(error.localizedDescription)")
+        }
+    }
+    
+    func animateLogoutPopup() {
+        self.containerPopupView.alpha = 0
+        self.popupLogoutView.alpha = 0
+        
+        UIView.animate(withDuration: 0.5, animations: {
+            self.containerPopupView.alpha = 1
+        }) { _ in
+            self.popupLogoutView.isHidden = false
+            UIView.animate(withDuration: 0.5, animations: {
+                self.popupLogoutView.alpha = 1
+            })
+        }
+    }
 }
 
 extension AccountVC: UITableViewDataSource, UITableViewDelegate {
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return infoType.count
+        
+        return UDHelper.roleUser == true ? adminInfoType.count : infoType.count
     }
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withClass: InfoCell.self, for: indexPath)
-        cell.configure(item: infoType[indexPath.row])
+        let role = UDHelper.roleUser
+        
+        if role {
+            let item = adminInfoType[indexPath.row]
+            cell.configure(image: item.iconName ?? UIImage(), name: item.name)
+        } else {
+            let item = infoType[indexPath.row]
+            cell.configure(image: item.iconName ?? UIImage(), name: item.name)
+        }
         cell.selectionStyle = .none
         return cell
     }
@@ -69,26 +118,64 @@ extension AccountVC: UITableViewDataSource, UITableViewDelegate {
     }
     
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        switch infoType[indexPath.row] {
-        case .changeInfo:
-            let vc = ChangeInfoVC()
-            vc.callBack = { [weak self] name,phone in
-                guard let self = self else { return }
-                
-                self.nameUserLabel.text = name
-                self.phoneNumberUserLabel.text = phone
-                Global.isDimissBottomSheet = false
+        
+        if UDHelper.roleUser {
+            switch adminInfoType[indexPath.row] {
+            case .changeInfo:
+                let vc = ChangeInfoVC()
+                vc.callBack = { [weak self] name,phone in
+                    guard let self = self else { return }
+                    
+                    self.nameUserLabel.text = name
+                    self.phoneNumberUserLabel.text = phone
+                    Global.isDimissBottomSheet = false
+                }
+                self.openBottomSheet(vc: vc, ratioView: 0.5, corner: 0)
+            case .changePassword:
+                let vc = ChangePasswordVC()
+                self.openBottomSheet(vc: vc, ratioView: 0.5, corner: 0)
+            case .client:
+                let vc = ClientsVC()
+                self.push(vc)
+            case .invoice:
+                let vc = InvoiceVC()
+                self.push(vc)
+            case .product:
+                let vc = ProductsVC()
+                self.push(vc)
+            case .order:
+                let vc = OrderPurchaseVC()
+                self.push(vc)
+            case .logout:
+                animateLogoutPopup()
             }
-            self.openBottomSheet(vc: vc, ratioView: 0.5, corner: 0)
-        case .changePassword:
-            let vc = ChangePasswordVC()
-            self.openBottomSheet(vc: vc, ratioView: 0.5, corner: 0)
-        case .address:
-            let vc = AddressVC()
-            self.push(vc)
-            
-        default:
-            break
+        } else {
+            switch infoType[indexPath.row] {
+            case .changeInfo:
+                let vc = ChangeInfoVC()
+                vc.callBack = { [weak self] name,phone in
+                    guard let self = self else { return }
+                    
+                    self.nameUserLabel.text = name
+                    self.phoneNumberUserLabel.text = phone
+                    Global.isDimissBottomSheet = false
+                }
+                self.openBottomSheet(vc: vc, ratioView: 0.5, corner: 0)
+            case .changePassword:
+                let vc = ChangePasswordVC()
+                self.openBottomSheet(vc: vc, ratioView: 0.5, corner: 0)
+            case .address:
+                let vc = AddressVC()
+                self.push(vc)
+            case .order:
+                let vc = OrderPurchaseVC()
+                self.push(vc)
+            case .logout:
+                animateLogoutPopup()
+            default:
+                break
+            }
         }
+        
     }
 }
